@@ -24,27 +24,19 @@ type Task = {
 
 const Stack = createNativeStackNavigator();
 
-const LandingScreen = ({ navigation }: any) => {
+const HomeScreen = ({ navigation }: any) => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const toggleAccordion = (id: number) => {
-    setExpandedTaskId(prevId => (prevId === id ? null : id));
+  const toggleExpand = (id: number) => {
+    setExpandedId(expandedId === id ? null : id);
   };
 
   const deleteTask = (id: number) => {
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => setTasks(tasks.filter(task => task.id !== id)),
-        },
-      ]
-    );
+    Alert.alert('Delete Task', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => setTasks(tasks.filter(t => t.id !== id)) },
+    ]);
   };
 
   return (
@@ -54,33 +46,17 @@ const LandingScreen = ({ navigation }: any) => {
         keyExtractor={item => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.taskItem}>
-            <TouchableOpacity
-              style={styles.taskHeader}
-              onPress={() => toggleAccordion(item.id)}
-            >
+            <TouchableOpacity style={styles.taskHeader} onPress={() => toggleExpand(item.id)}>
               <Text style={styles.taskTitle}>{item.name}</Text>
-              <Icon
-                name={expandedTaskId === item.id ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#007BFF"
-              />
+              <Icon name={expandedId === item.id ? 'chevron-up' : 'chevron-down'} size={16} color="#007BFF" />
             </TouchableOpacity>
 
-            {expandedTaskId === item.id && (
+            {expandedId === item.id && (
               <View style={styles.taskDetails}>
-                <Text>Description: {item.description}</Text>
-                {item.dueDate && <Text>Due Date: {item.dueDate}</Text>}
-                {item.dueTime && <Text>Due Time: {item.dueTime}</Text>}
+                <Text>{item.description}</Text>
+                {item.dueDate && <Text>Due: {item.dueDate} {item.dueTime}</Text>}
                 <View style={styles.taskActions}>
-                  <TouchableOpacity
-                    onPress={() =>
-                      navigation.navigate('TaskScreen', {
-                        task: item,
-                        tasks,
-                        setTasks,
-                      })
-                    }
-                  >
+                  <TouchableOpacity onPress={() => navigation.navigate('TaskScreen', { task: item, tasks, setTasks })}>
                     <Icon name="pencil" size={20} color="#007BFF" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteTask(item.id)}>
@@ -93,10 +69,7 @@ const LandingScreen = ({ navigation }: any) => {
         )}
         ListEmptyComponent={<Text style={styles.noTasks}>No tasks yet.</Text>}
       />
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => navigation.navigate('TaskScreen', { tasks, setTasks })}
-      >
+      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('TaskScreen', { tasks, setTasks })}>
         <Text style={styles.addButtonText}>+ Add Task</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -105,78 +78,32 @@ const LandingScreen = ({ navigation }: any) => {
 
 const TaskScreen = ({ route, navigation }: any) => {
   const { task, tasks, setTasks } = route.params || {};
-  const [name, setName] = useState(task ? task.name : '');
-  const [description, setDescription] = useState(task ? task.description : '');
-  const [dueDate, setDueDate] = useState(task ? task.dueDate : '');
-  const [dueTime, setDueTime] = useState(task ? task.dueTime : '');
+  const [name, setName] = useState(task?.name || '');
+  const [description, setDescription] = useState(task?.description || '');
+  const [dueDate, setDueDate] = useState(task?.dueDate || '');
+  const [dueTime, setDueTime] = useState(task?.dueTime || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [isChanged, setIsChanged] = useState(false);
-
-  const handleChange = (setter: Function, value: any) => {
-    setter(value);
-    setIsChanged(true);
-  };
 
   const saveTask = () => {
-    if (!name || !description) {
-      Alert.alert('Validation Error', 'Task name and description are mandatory!');
+    if (!name.trim() || !description.trim()) {
+      Alert.alert('Error', 'Task name and description are required!');
       return;
     }
 
     if (task) {
-      const updatedTasks = tasks.map((t: Task) =>
-        t.id === task.id ? { ...t, name, description, dueDate, dueTime } : t
-      );
-      setTasks(updatedTasks);
+      setTasks(tasks.map(t => (t.id === task.id ? { ...t, name, description, dueDate, dueTime } : t)));
     } else {
-      const newTask: Task = {
-        id: Math.random(),
-        name,
-        description,
-        dueDate,
-        dueTime,
-      };
-      setTasks([...tasks, newTask]);
+      setTasks([...tasks, { id: Date.now(), name, description, dueDate, dueTime }]);
     }
     navigation.goBack();
   };
 
-  const handleDateChange = (_event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      const localDate = new Date(selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000);
-      const formattedDate = localDate.toISOString().split('T')[0];
-      
-      setDueDate(formattedDate);
-    }
-  };
-  
-
-  const handleTimeChange = (_event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      const formattedTime = selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setDueTime(formattedTime);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder="Task Name"
-        placeholderTextColor="grey"
-        value={name}
-        onChangeText={value => handleChange(setName, value)}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Description"
-        placeholderTextColor="grey"
-        value={description}
-        onChangeText={value => handleChange(setDescription, value)}
-      />
+      <TextInput style={styles.input} placeholder="Task Name" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Description" value={description} onChangeText={setDescription} />
+      
       <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
         <Text style={{ color: dueDate ? 'black' : '#aaa' }}>{dueDate || 'Select Due Date'}</Text>
       </TouchableOpacity>
@@ -186,9 +113,13 @@ const TaskScreen = ({ route, navigation }: any) => {
           mode="date"
           display="default"
           minimumDate={new Date()}
-          onChange={handleDateChange}
+          onChange={(_event, selectedDate) => {
+            setShowDatePicker(false);
+            if (selectedDate) setDueDate(selectedDate.toISOString().split('T')[0]);
+          }}
         />
       )}
+
       <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
         <Text style={{ color: dueTime ? 'black' : '#aaa' }}>{dueTime || 'Select Due Time'}</Text>
       </TouchableOpacity>
@@ -197,14 +128,14 @@ const TaskScreen = ({ route, navigation }: any) => {
           value={new Date()}
           mode="time"
           display="default"
-          onChange={handleTimeChange}
+          onChange={(_event, selectedTime) => {
+            setShowTimePicker(false);
+            if (selectedTime) setDueTime(selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+          }}
         />
       )}
-      <TouchableOpacity
-        style={[styles.button, { opacity: isChanged ? 1 : 0.5 }]}
-        disabled={!isChanged}
-        onPress={saveTask}
-      >
+
+      <TouchableOpacity style={styles.button} onPress={saveTask}>
         <Text style={styles.buttonText}>Save Task</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -215,98 +146,24 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        <Stack.Screen
-          name="LandingScreen"
-          component={LandingScreen}
-          options={{ title: 'Tasks', headerTitleAlign: 'center' }}
-        />
-        <Stack.Screen
-          name="TaskScreen"
-          component={TaskScreen}
-          options={({ route }: any) => ({
-            title: route.params?.task ? 'Edit Task' : 'Add Task',
-            headerTitleAlign: 'center',
-          })}
-        />
+        <Stack.Screen name="HomeScreen" component={HomeScreen} options={{ title: 'Tasks' }} />
+        <Stack.Screen name="TaskScreen" component={TaskScreen} options={{ title: 'Task' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#f8f8f8',
-  },
-  taskItem: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  taskHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  taskTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  taskDetails: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#ccc',
-  },
-  taskActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  addButton: {
-    backgroundColor: '#007BFF',
-    padding: 16,
-    borderRadius: 50,
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  noTasks: {
-    textAlign: 'center',
-    color: '#666',
-    marginTop: 20,
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    marginBottom: 16,
-    justifyContent: 'center',
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, padding: 16, backgroundColor: '#f8f8f8' },
+  taskItem: { backgroundColor: '#fff', borderRadius: 8, marginBottom: 10, elevation: 2 },
+  taskHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+  taskTitle: { fontSize: 18, fontWeight: 'bold' },
+  taskDetails: { padding: 16, borderTopWidth: 1, borderTopColor: '#ccc' },
+  taskActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  addButton: { backgroundColor: '#007BFF', padding: 16, borderRadius: 50, position: 'absolute', bottom: 20, right: 20 },
+  addButtonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  noTasks: { textAlign: 'center', color: '#666', marginTop: 20 },
+  input: { height: 40, borderColor: '#ccc', borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, marginBottom: 16 },
+  button: { backgroundColor: '#007BFF', padding: 10, borderRadius: 8, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold' },
 });
